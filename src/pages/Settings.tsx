@@ -13,6 +13,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Globe,
+  Ruler,
   Phone,
   Hash,
   Shield,

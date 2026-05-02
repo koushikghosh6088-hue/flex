@@ -6,6 +6,7 @@ import {
   LogOut, 
   Layers,
   Box,
+  Store,
   ArrowRightLeft,
   CreditCard,
   Truck,
