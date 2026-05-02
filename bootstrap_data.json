@@ -1,0 +1,28 @@
+{
+  "users": [
+    { "name": "Koushik Owner", "email": "owner@flexstock.com", "role": "owner", "store_id": null, "pin": "882026", "password": "password123" },
+    { "name": "Rahul Sharma", "email": "managerA@flexstock.com", "role": "store_manager", "store_id": "Store A", "pin": "112233", "password": "password123" },
+    { "name": "Priya Das", "email": "managerB@flexstock.com", "role": "store_manager", "store_id": "Store B", "pin": "223344", "password": "password123" },
+    { "name": "Amit Roy", "email": "managerC@flexstock.com", "role": "store_manager", "store_id": "Store C", "pin": "334455", "password": "password123" }
+  ],
+  "data": {
+    "vendors": {
+      "v1": { "name": "National Paper Co.", "contact_person": "Amit Shah", "phone": "9876543210", "email": "sales@nationalpaper.com", "address": "Bhiwandi, Maharashtra", "opening_balance": 0, "current_balance": 5000 },
+      "v2": { "name": "Ultra Inks Ltd", "contact_person": "Suresh Babu", "phone": "9988776655", "email": "support@ultrainks.com", "address": "Sivakasi, TN", "opening_balance": 0, "current_balance": 0 }
+    },
+    "raw_materials": {
+      "m1": { "name": "Frontlit Flex 340 GSM", "unit": "SQFT", "central_stock": 5000, "reorder_level": 1000, "avg_unit_cost": 6.5 },
+      "m2": { "name": "Backlit Flex 440 GSM", "unit": "SQFT", "central_stock": 2000, "reorder_level": 500, "avg_unit_cost": 12.0 },
+      "m3": { "name": "Solvent Ink - Cyan", "unit": "LTR", "central_stock": 20, "reorder_level": 5, "avg_unit_cost": 850 }
+    },
+    "finished_products": {
+      "p1": { "name": "Standard Event Flex", "product_code": "FP-STD-01", "barcode": "100001", "size": "10x20 ft", "selling_price": 1800, "gst_rate": 18 },
+      "p2": { "name": "Premium Backlit Banner", "product_code": "FP-PRM-01", "barcode": "100002", "size": "4x6 ft", "selling_price": 1200, "gst_rate": 12 }
+    },
+    "stores": {
+      "Store A": { "name": "Mumbai Terminal A", "code": "MU-A", "location": "Andheri" },
+      "Store B": { "name": "Delhi Hub", "code": "DE-B", "location": "Okhla" },
+      "Store C": { "name": "Kolkata Outlet", "code": "KO-C", "location": "Salt Lake" }
+    }
+  }
+}

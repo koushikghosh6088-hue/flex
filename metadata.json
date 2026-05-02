@@ -1,0 +1,6 @@
+{
+  "name": "FlexFlow",
+  "description": "Premium Flex Banner manufacturing and store management system with secure PIN-based staff login and role-based dashboards.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": []
+}
