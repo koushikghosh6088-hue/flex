@@ -84,8 +84,17 @@ export default function SettingsPage() {
     e.preventDefault();
     if (!newStore.name || !newStore.code) return;
     try {
-      const { error } = await supabase.from('stores').insert([newStore]);
-      if (error) throw error;
+      const response = await fetch('/api/inventory/stores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newStore)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to initialize store');
+      }
+
       toast.success(`Node ${newStore.code} established`);
       setNewStore({ name: '', code: '' });
       loadData();

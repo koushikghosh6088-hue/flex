@@ -23,6 +23,8 @@ export default function RawMaterialsPage() {
   const [formData, setFormData] = useState({
     name: '',
     unit: 'SQFT',
+    material_kind: 'flex_roll',
+    roll_width_ft: '',
     description: ''
   });
 
@@ -53,7 +55,7 @@ export default function RawMaterialsPage() {
 
       toast.success('Material added successfully');
       setIsAddOpen(false);
-      setFormData({ name: '', unit: 'SQFT', description: '' });
+      setFormData({ name: '', unit: 'SQFT', material_kind: 'flex_roll', roll_width_ft: '', description: '' });
       refreshMaterials();
     } catch (error: any) {
       console.error('Material Addition Error:', error);
@@ -161,13 +163,46 @@ export default function RawMaterialsPage() {
             </div>
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-1">Measurement Unit (SQFT, LTR, KG)</Label>
-              <Input 
+              <select 
                 required
-                className="h-12 rounded-xl bg-neutral-50 border-neutral-100 font-bold"
+                className="w-full h-12 rounded-xl bg-neutral-50 border-neutral-100 font-bold px-3"
                 value={formData.unit}
                 onChange={(e) => setFormData({...formData, unit: e.target.value})}
-              />
+              >
+                <option value="SQFT">SQFT</option>
+                <option value="LTR">LTR</option>
+                <option value="KG">KG</option>
+                <option value="PCS">PCS</option>
+              </select>
             </div>
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-1">Material Kind</Label>
+              <select 
+                required
+                className="w-full h-12 rounded-xl bg-neutral-50 border-neutral-100 font-bold px-3"
+                value={formData.material_kind}
+                onChange={(e) => setFormData({...formData, material_kind: e.target.value})}
+              >
+                <option value="flex_roll">Flex Roll</option>
+                <option value="pipe">Pipe</option>
+                <option value="ink">Ink</option>
+                <option value="general">General</option>
+              </select>
+            </div>
+            {formData.material_kind === 'flex_roll' && (
+              <div className="space-y-2 animate-in slide-in-from-top-2 duration-300">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-1">Default Roll Width (ft)</Label>
+                <Input 
+                  required
+                  type="number"
+                  step="0.01"
+                  className="h-12 rounded-xl bg-neutral-50 border-neutral-100 font-bold"
+                  value={formData.roll_width_ft}
+                  onChange={(e) => setFormData({...formData, roll_width_ft: e.target.value})}
+                  placeholder="e.g. 4.00, 10.00"
+                />
+              </div>
+            )}
             <div className="space-y-2">
               <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-1">Internal Description</Label>
               <Input 

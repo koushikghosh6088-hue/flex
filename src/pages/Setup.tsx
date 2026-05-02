@@ -26,13 +26,13 @@ export default function SetupPage() {
   const handleCompanySetup = async () => {
     setLoading(true);
     try {
-      // Create company settings
-      const { error } = await supabase.from('settings').insert({
-        company_name: companyInfo.name,
-        company_email: companyInfo.email,
-        company_phone: companyInfo.phone,
-        company_address: companyInfo.address
-      });
+      // Create company settings in system_configs
+      const { error } = await supabase.from('system_configs').upsert([
+        { key: 'company_name', value: JSON.stringify(companyInfo.name) },
+        { key: 'company_email', value: JSON.stringify(companyInfo.email) },
+        { key: 'company_phone', value: JSON.stringify(companyInfo.phone) },
+        { key: 'company_address', value: JSON.stringify(companyInfo.address) }
+      ]);
 
       if (error) throw error;
       setStep(2);
@@ -52,34 +52,27 @@ export default function SetupPage() {
 
     setLoading(true);
     try {
-      // Create admin user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: adminInfo.email,
-        password: adminInfo.password,
-        email_confirm: true,
-        user_metadata: {
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: adminInfo.email,
+          password: adminInfo.password,
           name: adminInfo.name,
-          role: 'owner'
-        }
+          role: 'owner',
+          pin: '000000'
+        })
       });
 
-      if (authError) throw authError;
-
-      // Create user profile
-      const { error: profileError } = await supabase.from('users').insert({
-        id: authData.user.id,
-        email: adminInfo.email,
-        name: adminInfo.name,
-        role: 'owner',
-        pin: '000000'
-      });
-
-      if (profileError) throw profileError;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create admin');
+      }
 
       setStep(3);
       toast.success('Admin account created successfully!');
-    } catch (error) {
-      toast.error('Failed to create admin account');
+    } catch (error: any) {
+      toast.error('Failed to create admin account: ' + error.message);
     } finally {
       setLoading(false);
     }
