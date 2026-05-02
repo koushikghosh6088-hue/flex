@@ -5,7 +5,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
-import { demoAuditLogs } from '../lib/demoData';
+
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -28,10 +28,10 @@ export default function AuditLogsPage() {
         .limit(100);
 
       if (error) throw error;
-      setLogs(data?.length ? data : demoAuditLogs);
+      setLogs(data || []);
     } catch (error) {
       toast.error('Failed to load system audit trail');
-      setLogs(demoAuditLogs);
+      setLogs([]);
     } finally {
       setLoading(false);
     }

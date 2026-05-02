@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { demoMaterials, demoSales } from '../lib/demoData';
+
 import {
   BarChart,
   Bar,
@@ -72,12 +72,8 @@ export default function ReportsPage() {
       if (sales.error) throw sales.error;
       if (inventory.error) throw inventory.error;
 
-      const sourceSales = sales.data?.length ? sales.data : demoSales.filter((sale) => !effectiveStoreId || effectiveStoreId === 'all' || sale.store_id === effectiveStoreId);
-      const sourceInventory = inventory.data?.length ? inventory.data : demoMaterials.flatMap((material) =>
-        material.store_stock
-          .filter((stock) => !effectiveStoreId || effectiveStoreId === 'all' || stock.store_id === effectiveStoreId)
-          .map((stock) => ({ ...stock, raw_materials: { name: material.name } }))
-      );
+      const sourceSales = sales.data || [];
+      const sourceInventory = inventory.data || [];
 
       const dailySales: any = {};
       let totalRevenue = 0;

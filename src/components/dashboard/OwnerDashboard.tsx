@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Button } from '../ui/button';
 import { supabase } from '../../lib/supabase';
 import { useData } from '../../contexts/DataContext';
-import { demoMaterials, demoSales } from '../../lib/demoData';
+
 import {
   XAxis,
   YAxis,
@@ -36,10 +36,8 @@ export default function OwnerDashboard() {
       }
 
       const [salesResult, stockResult] = await Promise.all([salesQuery, stockQuery]);
-      const fallbackSales = demoSales.filter((sale) => selectedStoreId === 'all' || sale.store_id === selectedStoreId);
-      const fallbackStock = demoMaterials.flatMap((material) => material.store_stock).filter((stock) => selectedStoreId === 'all' || stock.store_id === selectedStoreId);
-      setSales(salesResult.data?.length ? salesResult.data : fallbackSales);
-      setStockRows(stockResult.data?.length ? stockResult.data : fallbackStock);
+      setSales(salesResult.data || []);
+      setStockRows(stockResult.data || []);
       setLoading(false);
     };
 

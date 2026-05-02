@@ -5,7 +5,7 @@ import { Button } from '../ui/button';
 import { useAuth } from '../../contexts/AuthContext';
 import { useData } from '../../contexts/DataContext';
 import { supabase } from '../../lib/supabase';
-import { demoMaterials, demoSales } from '../../lib/demoData';
+
 import {
   BarChart,
   Bar,
@@ -40,8 +40,8 @@ export default function ManagerDashboard() {
           .eq('store_id', profile.store_id)
       ]);
 
-      setSales(salesResult.data?.length ? salesResult.data : demoSales.filter((sale) => sale.store_id === profile.store_id));
-      setStockRows(stockResult.data?.length ? stockResult.data : demoMaterials.flatMap((material) => material.store_stock).filter((stock) => stock.store_id === profile.store_id));
+      setSales(salesResult.data || []);
+      setStockRows(stockResult.data || []);
     };
 
     load();

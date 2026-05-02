@@ -16,7 +16,7 @@ import {
 } from "../components/ui/dialog";
 
 import { useData } from '../contexts/DataContext';
-import { demoProducts } from '../lib/demoData';
+
 
 type StorePrice = {
   store_id: string;

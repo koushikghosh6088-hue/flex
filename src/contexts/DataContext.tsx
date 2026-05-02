@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
-import { demoMaterials, demoProducts, demoStores, demoVendors } from '../lib/demoData';
+
 
 interface DataContextType {
   materials: any[];
@@ -44,10 +44,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         `)
         .order('name');
       if (data) setMaterials(data);
-      if (!data || data.length === 0) setMaterials(demoMaterials);
     } catch (e) {
       console.error('Failed to refresh materials', e);
-      setMaterials(demoMaterials);
+      setMaterials([]);
     }
   }, []);
 
@@ -58,10 +57,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         .select('*')
         .order('name');
       if (data) setProducts(data);
-      if (!data || data.length === 0) setProducts(demoProducts);
     } catch (e) {
       console.error('Failed to refresh products', e);
-      setProducts(demoProducts);
+      setProducts([]);
     }
   }, []);
 
@@ -69,10 +67,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await supabase.from('vendors').select('*').order('name');
       if (data) setVendors(data);
-      if (!data || data.length === 0) setVendors(demoVendors);
     } catch (e) {
       console.error('Failed to refresh vendors', e);
-      setVendors(demoVendors);
+      setVendors([]);
     }
   }, []);
 
@@ -80,10 +77,9 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     try {
       const { data } = await supabase.from('stores').select('*').order('name');
       if (data) setStores(data);
-      if (!data || data.length === 0) setStores(demoStores);
     } catch (e) {
       console.error('Failed to refresh stores', e);
-      setStores(demoStores);
+      setStores([]);
     }
   }, []);
 
