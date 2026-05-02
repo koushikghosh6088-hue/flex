@@ -75,11 +75,21 @@ app.get('/api/health', (req, res) => {
 // Create Raw Material
 app.post('/api/inventory/raw-materials', async (req, res) => {
   if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
-  const { name, unit, description } = req.body;
+  const { name, unit, material_kind, roll_width_ft, description } = req.body;
   try {
-    const { data, error } = await supabaseAdmin.from('raw_materials').insert([{ name, unit, description }]).select().single();
+    const { data, error } = await supabaseAdmin.from('raw_materials').insert([{ 
+      name, 
+      unit: unit || 'SQFT', 
+      material_kind: material_kind || 'flex_roll',
+      roll_width_ft: roll_width_ft ? Number(roll_width_ft) : null,
+      description 
+    }]).select().single();
+    
     if (error) throw error;
+    
+    // Initialize central stock
     await supabaseAdmin.from('central_stock').insert([{ raw_material_id: data.id, quantity: 0 }]);
+    
     res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -152,7 +162,7 @@ app.post('/api/auth/verify-pin', async (req, res) => {
   }
 });
 
-// Record Purchase
+// Record Purchase & Create Batches
 app.post('/api/inventory/purchase', async (req, res) => {
   if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
   const { vendorId, invoice, date, items, userId } = req.body;
@@ -165,6 +175,21 @@ app.post('/api/inventory/purchase', async (req, res) => {
     const batchRecords = [];
     const wastagePerRoll = await getSystemConfig('wastage_per_roll_ft', 0.5);
 
+    // 1. Create Purchase Header
+    const { data: purchaseData, error: purchaseError } = await supabaseAdmin
+      .from('purchases')
+      .insert({
+        vendor_id: vendorId,
+        purchase_date: date || new Date().toISOString().split('T')[0],
+        notes: invoice || 'N/A',
+        created_by: userId,
+        total_amount: 0 // Will update later
+      })
+      .select().single();
+
+    if (purchaseError) throw purchaseError;
+
+    // 2. Process Items and prepare batches
     for (const item of items) {
       const newQty = Number(item.quantity);
       const newRate = Number(item.rate);
@@ -176,22 +201,21 @@ app.post('/api/inventory/purchase', async (req, res) => {
         .eq('id', item.materialId)
         .single();
 
-      const rollWidth = material?.roll_width_ft || 0;
+      const rollWidth = material?.roll_width_ft || Number(item.rollWidth) || 0;
       const rollLength = 100;
-      const actualArea = rollWidth * rollLength;
       const usableArea = (rollWidth - wastagePerRoll) * rollLength;
       
       const numRolls = material?.material_kind === 'flex_roll' ? Math.max(1, Math.round(newQty)) : 1;
       const costPerRoll = subtotal / numRolls;
-      const costPerSqFt = costPerRoll / usableArea;
+      const costPerSqFt = costPerRoll / (usableArea || 1);
 
       for (let i = 0; i < numRolls; i++) {
         batchRecords.push({
           raw_material_id: item.materialId,
+          purchase_id: purchaseData.id,
           vendor_id: vendorId,
           roll_width_ft: rollWidth,
           roll_length_ft: rollLength,
-          actual_area_sqft: actualArea,
           usable_area_sqft: usableArea,
           remaining_usable_area_sqft: usableArea,
           cost_per_sqft: costPerSqFt,
@@ -199,26 +223,38 @@ app.post('/api/inventory/purchase', async (req, res) => {
         });
       }
       totalAmount += subtotal;
+
+      // Update Central Stock
+      const { data: currentStock } = await supabaseAdmin
+        .from('central_stock')
+        .select('quantity')
+        .eq('raw_material_id', item.materialId).maybeSingle();
+      
+      const qtyToAdd = numRolls * usableArea;
+
+      if (currentStock) {
+        await supabaseAdmin.from('central_stock').update({ 
+          quantity: (currentStock.quantity || 0) + qtyToAdd,
+          last_updated: new Date().toISOString()
+        }).eq('raw_material_id', item.materialId);
+      } else {
+        await supabaseAdmin.from('central_stock').insert({
+          raw_material_id: item.materialId,
+          quantity: qtyToAdd,
+          last_updated: new Date().toISOString()
+        });
+      }
     }
 
-    const { data: purchaseData, error: purchaseError } = await supabaseAdmin
-      .from('purchases')
-      .insert({
-        vendor_id: vendorId,
-        purchase_date: date || new Date().toISOString().split('T')[0],
-        notes: invoice || 'N/A',
-        created_by: userId,
-        total_amount: totalAmount,
-        created_at: new Date().toISOString()
-      })
-      .select().single();
+    // 3. Update Purchase with total amount
+    await supabaseAdmin.from('purchases').update({ total_amount: totalAmount }).eq('id', purchaseData.id);
 
-    if (purchaseError) throw purchaseError;
+    // 4. Create Batches
+    if (batchRecords.length > 0) {
+      await supabaseAdmin.from('material_batches').insert(batchRecords);
+    }
 
-    await supabaseAdmin
-      .from('material_batches')
-      .insert(batchRecords.map(b => ({ ...b, purchase_id: purchaseData.id })));
-
+    // 5. Update Vendor Ledger
     const { data: currentBalanceData } = await supabaseAdmin
       .from('vendor_ledger')
       .select('balance')
@@ -238,38 +274,14 @@ app.post('/api/inventory/purchase', async (req, res) => {
       created_at: new Date().toISOString()
     });
 
-    for (const item of items) {
-      const { data: currentStock } = await supabaseAdmin
-        .from('central_stock')
-        .select('quantity')
-        .eq('raw_material_id', item.materialId).single();
-      
-      const qtyToAdd = batchRecords
-        .filter(b => b.raw_material_id === item.materialId)
-        .reduce((sum, b) => sum + b.usable_area_sqft, 0);
-
-      if (currentStock) {
-        await supabaseAdmin.from('central_stock').update({ 
-          quantity: (currentStock.quantity || 0) + qtyToAdd,
-          last_updated: new Date().toISOString()
-        }).eq('raw_material_id', item.materialId);
-      } else {
-        await supabaseAdmin.from('central_stock').insert({
-          raw_material_id: item.materialId,
-          quantity: qtyToAdd,
-          last_updated: new Date().toISOString()
-        });
-      }
-    }
-
     await logAuditEvent({
       event_type: 'PURCHASE',
-      description: `Purchase of ${batchRecords.length} rolls from ${vendorId}.`,
+      description: `Purchase of ${batchRecords.length} units from ${vendorId}.`,
       user_id: userId,
       reference_id: purchaseData.id
     });
 
-    res.json({ status: 'success' });
+    res.json({ status: 'success', purchaseId: purchaseData.id });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -281,7 +293,7 @@ app.post('/api/inventory/transfer', async (req, res) => {
   const { materialId, toStoreId, quantity, remarks, userId } = req.body;
   try {
     const { data: materialData } = await supabaseAdmin.from('raw_materials').select('name').eq('id', materialId).single();
-    const { data: centralStock } = await supabaseAdmin.from('central_stock').select('quantity').eq('raw_material_id', materialId).single();
+    const { data: centralStock } = await supabaseAdmin.from('central_stock').select('quantity').eq('raw_material_id', materialId).maybeSingle();
 
     if ((centralStock?.quantity || 0) < quantity) return res.status(400).json({ error: 'Insufficient central stock' });
 
@@ -290,7 +302,7 @@ app.post('/api/inventory/transfer', async (req, res) => {
       last_updated: new Date().toISOString()
     }).eq('raw_material_id', materialId);
 
-    const { data: storeStock } = await supabaseAdmin.from('store_stock').select('quantity').eq('store_id', toStoreId).eq('raw_material_id', materialId).single();
+    const { data: storeStock } = await supabaseAdmin.from('store_stock').select('quantity').eq('store_id', toStoreId).eq('raw_material_id', materialId).maybeSingle();
 
     if (storeStock) {
       await supabaseAdmin.from('store_stock').update({ 
@@ -304,50 +316,7 @@ app.post('/api/inventory/transfer', async (req, res) => {
       });
     }
 
-    const { data: transferData } = await supabaseAdmin.from('stock_transfers').insert({
-      to_store_id: toStoreId, raw_material_id: materialId, quantity: Number(quantity),
-      notes: remarks || '', created_by: userId, created_at: new Date().toISOString()
-    }).select().single();
-
-    await logAuditEvent({
-      event_type: 'TRANSFER',
-      description: `Transferred ${quantity} units of ${materialData?.name} to ${toStoreId}.`,
-      user_id: userId,
-      reference_id: transferData?.id
-    });
-
     res.json({ status: 'success' });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// POS Sale
-app.post('/api/pos/sale', async (req, res) => {
-  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
-  const { storeId, userId, items, paymentMode, totalAmount, customerName, customerPhone } = req.body;
-  try {
-    const { data: saleId, error } = await supabaseAdmin.rpc('process_pos_sale', {
-      p_store_id: storeId, p_user_id: userId, p_customer_name: customerName,
-      p_customer_phone: customerPhone, p_items: items, p_payment_mode: paymentMode,
-      p_total_amount: totalAmount
-    });
-    if (error) throw error;
-    res.json({ status: 'success', saleId });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Reports
-app.get('/api/reports/wastage', async (req, res) => {
-  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
-  try {
-    const { data } = await supabaseAdmin.from('sale_item_consumptions').select(`
-      area_deducted_sqft, wastage_generated_sqft, created_at,
-      sale_items(sale_id, width_ft, height_ft, quantity, sales(customer_name))
-    `);
-    res.json(data);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
