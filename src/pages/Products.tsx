@@ -63,11 +63,20 @@ export default function ProductsPage() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.from('finished_products').insert([{
-        ...formData,
-        selling_price: parseFloat(formData.selling_price) || 0
-      }]);
-      if (error) throw error;
+      const response = await fetch('/api/inventory/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          selling_price: parseFloat(formData.selling_price) || 0
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to add product');
+      }
+
       toast.success('Product added successfully');
       setIsAddOpen(false);
       setFormData({ name: '', unit: 'Piece', selling_price: '', description: '' });

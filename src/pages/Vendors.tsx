@@ -33,16 +33,26 @@ export default function VendorsPage() {
   const handleAddVendor = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { error } = await supabase.from('vendors').insert([formData]);
-      if (error) throw error;
+      const response = await fetch('/api/inventory/vendors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to add vendor');
+      }
+
       toast.success('Vendor added successfully');
       setIsAddOpen(false);
       setFormData({ name: '', contact_person: '', phone: '', email: '', address: '' });
       refreshVendors();
     } catch (error: any) {
-      toast.error('Failed to add vendor: ' + error.message);
+      toast.error(error.message);
     }
   };
+
 
   if (selectedVendor) {
     return <VendorLedgerPage vendor={selectedVendor} onBack={() => setSelectedVendor(null)} />;

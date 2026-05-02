@@ -40,20 +40,16 @@ export default function RawMaterialsPage() {
   const handleAddMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { data: newMaterial, error: materialError } = await supabase
-        .from('raw_materials')
-        .insert([formData])
-        .select()
-        .single();
+      const response = await fetch('/api/inventory/raw-materials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
 
-      if (materialError) throw materialError;
-
-      // Initialize central stock for this material
-      const { error: stockError } = await supabase
-        .from('central_stock')
-        .insert([{ raw_material_id: newMaterial.id, quantity: 0 }]);
-
-      if (stockError) throw stockError;
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to add material');
+      }
 
       toast.success('Material added successfully');
       setIsAddOpen(false);
@@ -61,8 +57,7 @@ export default function RawMaterialsPage() {
       refreshMaterials();
     } catch (error: any) {
       console.error('Material Addition Error:', error);
-      const msg = error.details || error.message || 'Check your database connection';
-      toast.error('Failed to add material: ' + msg);
+      toast.error('Failed to add material: ' + error.message);
     }
   };
 
