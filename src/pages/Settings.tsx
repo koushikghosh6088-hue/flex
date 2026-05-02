@@ -122,7 +122,6 @@ export default function SettingsPage() {
         <TabsList className="bg-neutral-100 p-1 rounded-2xl w-full sm:w-fit grid grid-cols-2 sm:flex sm:gap-1">
           <TabsTrigger value="general" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs uppercase tracking-widest px-6 py-3">General</TabsTrigger>
           <TabsTrigger value="engine" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs uppercase tracking-widest px-6 py-3">Material Engine</TabsTrigger>
-          <TabsTrigger value="stores" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs uppercase tracking-widest px-6 py-3">Stores</TabsTrigger>
           <TabsTrigger value="users" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs uppercase tracking-widest px-6 py-3">Identity</TabsTrigger>
           <TabsTrigger value="security" className="rounded-xl data-[state=active]:bg-white data-[state=active]:shadow-sm font-bold text-xs uppercase tracking-widest px-6 py-3">Security</TabsTrigger>
         </TabsList>
@@ -219,53 +218,6 @@ export default function SettingsPage() {
                        <p className="text-sm font-medium text-orange-100 leading-relaxed">Configure how your nodes interact and synchronize data across timezones.</p>
                     </CardContent>
                  </Card>
-              </div>
-           </div>
-        </TabsContent>
-
-        <TabsContent value="stores" className="animate-in fade-in slide-in-from-left-4 duration-500">
-           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-1">
-                 <Card className="rounded-[2.5rem] border-none shadow-sm bg-white overflow-hidden">
-                    <CardHeader className="p-8 pb-4">
-                       <CardTitle className="text-xl font-black tracking-tight text-neutral-900">Establish Node</CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-8 pt-4">
-                       <form onSubmit={handleAddStore} className="space-y-4">
-                          <div className="space-y-2">
-                             <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-1">Branch Name</Label>
-                             <Input required className="h-12 rounded-xl bg-neutral-50 border-neutral-100 font-bold" value={newStore.name} onChange={(e) => setNewStore({...newStore, name: e.target.value})} />
-                          </div>
-                          <div className="space-y-2">
-                             <Label className="text-[10px] font-black uppercase tracking-widest text-neutral-400 ml-1">Node Code</Label>
-                             <Input required className="h-12 rounded-xl bg-neutral-50 border-neutral-100 font-bold" value={newStore.code} onChange={(e) => setNewStore({...newStore, code: e.target.value})} />
-                          </div>
-                          <Button type="submit" className="w-full h-12 rounded-xl bg-orange-600 text-white font-black mt-2">Initialize Store</Button>
-                       </form>
-                    </CardContent>
-                 </Card>
-              </div>
-              <div className="lg:col-span-2">
-                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {stores.map((store) => (
-                       <Card key={store.id} className="rounded-3xl border-none shadow-sm bg-white p-6 hover:shadow-lg transition-all group">
-                          <div className="flex items-center justify-between">
-                             <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-neutral-900 rounded-2xl flex items-center justify-center text-white">
-                                   <Store size={24} />
-                                </div>
-                                <div>
-                                   <h4 className="font-black text-neutral-900 tracking-tight">{store.name}</h4>
-                                   <p className="text-[10px] font-black text-orange-600 uppercase tracking-widest">{store.code}</p>
-                                </div>
-                             </div>
-                             <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-red-50 text-red-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Trash2 size={18} />
-                             </Button>
-                          </div>
-                       </Card>
-                    ))}
-                 </div>
               </div>
            </div>
         </TabsContent>

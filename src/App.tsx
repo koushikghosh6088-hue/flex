@@ -23,6 +23,7 @@ const PurchaseEntryPage = lazy(() => import('./pages/PurchaseEntry'));
 const ReportsPage = lazy(() => import('./pages/Reports'));
 const AuditLogsPage = lazy(() => import('./pages/AuditLogs'));
 const SettingsPage = lazy(() => import('./pages/Settings'));
+const StoresPage = lazy(() => import('./pages/Stores'));
 const ConsumptionCalculatorPage = lazy(() => import('./pages/ConsumptionCalculator'));
 
 function LoadingScreen() {
@@ -108,6 +109,8 @@ function AppContent() {
         return <AuditLogsPage />;
       case '/settings':
         return <SettingsPage />;
+      case '/stores':
+        return <StoresPage />;
       case '/calculator':
         return <ConsumptionCalculatorPage />;
       case '/':

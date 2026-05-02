@@ -71,6 +71,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const menuItems = [
     { title: 'Dashboard', icon: LayoutDashboard, role: ['owner', 'store_manager'], path: '/' },
     { title: 'POS Terminal', icon: CreditCard, role: ['owner', 'store_manager'], path: '/pos' },
+    { title: 'Branch Network', icon: Store, role: ['owner'], path: '/stores' },
     { title: 'Raw Materials', icon: Layers, role: ['owner', 'store_manager'], path: '/inventory' },
     { title: 'Finished Products', icon: Box, role: ['owner', 'store_manager'], path: '/products' },
     { title: 'BOM Calculator', icon: Calculator, role: ['owner'], path: '/calculator' },
