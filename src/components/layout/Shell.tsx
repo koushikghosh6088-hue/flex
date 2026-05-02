@@ -58,7 +58,7 @@ function Clock() {
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { profile, signOut } = useAuth();
+  const { profile, signOut, currentPath, navigateTo } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const [theme, setTheme] = React.useState<'light' | 'dark'>(() => {
     return (localStorage.getItem('flexflow-theme') as 'light' | 'dark') || 'light';
@@ -86,12 +86,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   const filteredItems = menuItems.filter(item => item.role.includes(profile?.role || ''));
 
-  const navigateTo = (path: string) => {
-    window.history.pushState({}, '', path);
-    window.dispatchEvent(new PopStateEvent('popstate'));
-    setMobileMenuOpen(false);
-  };
-
   const SidebarMenuContent = () => (
     <div className="mb-4 mt-2">
        <p className="text-[10px] font-bold text-slate-400 dark:text-white/35 uppercase tracking-[0.24em] mb-4 px-3">Main Navigation</p>
@@ -99,10 +93,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
          {filteredItems.map((item) => (
            <SidebarMenuItem key={item.title}>
              <SidebarMenuButton 
-               className={`h-12 px-4 rounded-2xl transition-all duration-200 group ${window.location.pathname === item.path ? 'bg-orange-600 text-white shadow-lg shadow-orange-100 dark:shadow-black/25 hover:bg-orange-600 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:text-white/62 dark:hover:bg-white/10 dark:hover:text-white border border-transparent'}`}
-               onClick={() => navigateTo(item.path)}
+               className={`h-12 px-4 rounded-2xl transition-all duration-200 group ${currentPath === item.path ? 'bg-orange-600 text-white shadow-lg shadow-orange-100 dark:shadow-black/25 hover:bg-orange-600 hover:text-white' : 'text-slate-500 hover:bg-slate-100 hover:text-slate-950 dark:text-white/62 dark:hover:bg-white/10 dark:hover:text-white border border-transparent'}`}
+               onClick={() => { navigateTo(item.path); setMobileMenuOpen(false); }}
              >
-               <item.icon size={20} className={window.location.pathname === item.path ? 'text-white' : 'group-hover:text-orange-600 dark:group-hover:text-orange-300 transition-colors'} />
+               <item.icon size={20} className={currentPath === item.path ? 'text-white' : 'group-hover:text-orange-600 dark:group-hover:text-orange-300 transition-colors'} />
                <span className="font-bold text-sm ml-3 tracking-tight">{item.title}</span>
              </SidebarMenuButton>
            </SidebarMenuItem>
@@ -204,7 +198,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               <div className="flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 bg-white/85 dark:bg-white/10 rounded-2xl border border-white/70 dark:border-white/10 shadow-sm">
                 <LayoutDashboard size={14} className="text-orange-600 shrink-0" />
                 <span className="text-[10px] md:text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider truncate max-w-[120px] md:max-w-none">
-                   {window.location.pathname.substring(1).replace('-', ' ') || 'Dashboard'}
+                   {currentPath.substring(1).replace('-', ' ') || 'Dashboard'}
                 </span>
               </div>
             </div>

@@ -35,8 +35,7 @@ function LoadingScreen() {
 }
 
 function AppContent() {
-  const { user, profile, loading, signOut } = useAuth();
-  const [path, setPath] = React.useState(window.location.pathname);
+  const { user, profile, loading, signOut, currentPath, navigateTo } = useAuth();
 
   // Auto-logout: 30 minutes of inactivity
   React.useEffect(() => {
@@ -67,28 +66,21 @@ function AppContent() {
   }, [user, signOut]);
 
   React.useEffect(() => {
-    const handleLocationChange = () => setPath(window.location.pathname);
-    window.addEventListener('popstate', handleLocationChange);
-    return () => window.removeEventListener('popstate', handleLocationChange);
-  }, []);
-
-  React.useEffect(() => {
     const managerAllowedPaths = new Set(['/', '/inventory', '/products', '/reports', '/pos']);
-    if (profile?.role === 'store_manager' && !managerAllowedPaths.has(path)) {
-      window.history.replaceState({}, '', '/');
-      setPath('/');
+    if (profile?.role === 'store_manager' && !managerAllowedPaths.has(currentPath)) {
+      navigateTo('/');
     }
-  }, [path, profile?.role]);
+  }, [currentPath, profile?.role, navigateTo]);
 
   if (loading) return <LoadingScreen />;
 
   const renderContent = () => {
     const managerAllowedPaths = new Set(['/', '/inventory', '/products', '/reports', '/pos']);
-    if (profile?.role === 'store_manager' && !managerAllowedPaths.has(path)) {
+    if (profile?.role === 'store_manager' && !managerAllowedPaths.has(currentPath)) {
       return <ManagerDashboard />;
     }
 
-    switch (path) {
+    switch (currentPath) {
       case '/inventory':
         return <RawMaterialsPage />;
       case '/vendors':

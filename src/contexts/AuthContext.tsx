@@ -18,6 +18,8 @@ interface AuthContextType {
   loading: boolean;
   signOut: () => Promise<{ error: string | null }>;
   mockLogin: (profile: UserProfile) => void;
+  currentPath: string;
+  navigateTo: (path: string) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +28,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [currentPath, setCurrentPath] = useState(window.location.pathname);
+
+  const navigateTo = (path: string) => {
+    window.history.pushState({}, '', path);
+    setCurrentPath(path);
+  };
+
+  useEffect(() => {
+    const handlePopState = () => setCurrentPath(window.location.pathname);
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -126,7 +140,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signOut, mockLogin }}>
+    <AuthContext.Provider value={{ user, profile, loading, signOut, mockLogin, currentPath, navigateTo }}>
       {children}
     </AuthContext.Provider>
   );
