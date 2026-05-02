@@ -10,40 +10,22 @@ import { dirname, resolve } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Only try to load .env.local if not on Vercel
-if (!process.env.VERCEL) {
-  try {
-    const dotenv = await import('dotenv');
-    dotenv.config({ path: resolve(__dirname, '.env.local') });
-  } catch (e) {
-    console.warn('Could not load dotenv, skipping...');
-  }
-}
-
 export const app = express();
 app.use(compression());
 app.use(express.json());
 
 // Supabase Admin Setup
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-let supabaseAdmin: any;
-
-try {
-  if (supabaseUrl && supabaseServiceKey) {
-    supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+const supabaseAdmin = (supabaseUrl && supabaseServiceKey) 
+  ? createClient(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false
       }
-    });
-  } else {
-    console.error('Supabase credentials missing in server.ts');
-  }
-} catch (e) {
-  console.error('Failed to initialize Supabase Admin:', e);
-}
+    })
+  : null;
 
 // Audit Logging Helper
 async function logAuditEvent(event: {
@@ -54,185 +36,54 @@ async function logAuditEvent(event: {
   metadata?: any
 }) {
   if (!supabaseAdmin) return;
-  const { error } = await supabaseAdmin
-    .from('audit_logs')
-    .insert({
-      ...event,
-      created_at: new Date().toISOString()
-    });
-  
-  if (error) {
-    console.error('Failed to log audit event:', error);
+  try {
+    await supabaseAdmin
+      .from('audit_logs')
+      .insert({
+        ...event,
+        created_at: new Date().toISOString()
+      });
+  } catch (e) {
+    console.error('Failed to log audit event:', e);
   }
-}
-
-async function getAuthorizedStore(userId: string, requestedStoreId: string) {
-  if (!supabaseAdmin) return { error: 'Database not initialized', status: 500 };
-  const { data: userProfile, error: userError } = await supabaseAdmin
-    .from('users')
-    .select('id, role, store_id')
-    .eq('id', userId)
-    .single();
-
-  if (userError || !userProfile) {
-    return { error: 'User profile not found', status: 404 };
-  }
-
-  if (userProfile.role !== 'owner' && userProfile.store_id !== requestedStoreId) {
-    return { error: 'You are not authorized to access this store', status: 403 };
-  }
-
-  const { data: storeData, error: storeError } = await supabaseAdmin
-    .from('stores')
-    .select('id, name, code')
-    .eq('id', requestedStoreId)
-    .single();
-
-  if (storeError || !storeData) {
-    return { error: 'Store not found', status: 404 };
-  }
-
-  return { userProfile, storeData };
-}
-
-async function getEffectiveProductPrice(productId: string, storeId: string, fallbackRate?: number) {
-  if (!supabaseAdmin) throw new Error('Database not initialized');
-  const { data: productData, error: productError } = await supabaseAdmin
-    .from('finished_products')
-    .select('name, selling_price')
-    .eq('id', productId)
-    .single();
-
-  if (productError) throw productError;
-
-  const { data: overrideData, error: overrideError } = await supabaseAdmin
-    .from('store_product_prices')
-    .select('selling_price')
-    .eq('store_id', storeId)
-    .eq('finished_product_id', productId)
-    .maybeSingle();
-
-  if (overrideError && !['42P01', 'PGRST205'].includes(overrideError.code)) {
-    throw overrideError;
-  }
-
-  const effectivePrice = overrideData?.selling_price ?? productData.selling_price ?? fallbackRate ?? 0;
-  return {
-    name: productData.name,
-    selling_price: Number(effectivePrice)
-  };
-}
-
-function parseRollWidth(name = '') {
-  const match = name.match(/(\d+(?:\.\d+)?)\s*(?:ft|feet|')/i);
-  return match ? Number(match[1]) : null;
-}
-
-async function findFlexRollMaterial(requiredRollWidthFt: number) {
-  if (!supabaseAdmin) throw new Error('Database not initialized');
-  let { data: materials, error }: { data: any[] | null; error: any } = await supabaseAdmin
-    .from('raw_materials')
-    .select('id, name, roll_width_ft')
-    .or(`material_kind.eq.flex_roll,name.ilike.%flex roll%`);
-
-  if (error && ['PGRST204', '42703'].includes(error.code)) {
-    const fallback = await supabaseAdmin
-      .from('raw_materials')
-      .select('id, name')
-      .ilike('name', '%flex%');
-    materials = fallback.data;
-    error = fallback.error;
-  }
-
-  if (error) throw error;
-
-  const candidates = (materials || [])
-    .map((material: any) => ({
-      ...material,
-      resolvedWidth: Number(material.roll_width_ft || parseRollWidth(material.name) || 0)
-    }))
-    .filter((material: any) => material.resolvedWidth >= requiredRollWidthFt)
-    .sort((a: any, b: any) => a.resolvedWidth - b.resolvedWidth);
-
-  return candidates[0] || null;
-}
-
-async function findPipeMaterial() {
-  if (!supabaseAdmin) throw new Error('Database not initialized');
-  let { data, error } = await supabaseAdmin
-    .from('raw_materials')
-    .select('id, name')
-    .or('material_kind.eq.pipe,name.ilike.%pipe%')
-    .limit(1)
-    .maybeSingle();
-
-  if (error && ['PGRST204', '42703'].includes(error.code)) {
-    const fallback = await supabaseAdmin
-      .from('raw_materials')
-      .select('id, name')
-      .ilike('name', '%pipe%')
-      .limit(1)
-      .maybeSingle();
-    data = fallback.data;
-    error = fallback.error;
-  }
-
-  if (error && error.code !== 'PGRST116') throw error;
-  return data || null;
-}
-
-async function getLatestMaterialCost(rawMaterialId: string) {
-  if (!supabaseAdmin) return 0;
-  const { data } = await supabaseAdmin
-    .from('purchases')
-    .select('unit_price')
-    .eq('raw_material_id', rawMaterialId)
-    .order('purchase_date', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return Number(data?.unit_price || 0);
 }
 
 async function getSystemConfig(key: string, defaultValue: any) {
   if (!supabaseAdmin) return defaultValue;
-  const { data, error } = await supabaseAdmin
-    .from('system_configs')
-    .select('value')
-    .eq('key', key)
-    .maybeSingle();
-  
-  if (error || !data) return defaultValue;
-  return data.value;
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('system_configs')
+      .select('value')
+      .eq('key', key)
+      .maybeSingle();
+    
+    if (error || !data) return defaultValue;
+    return data.value;
+  } catch (e) {
+    return defaultValue;
+  }
 }
 
 // Health Check & Diagnostics
-app.get('/api/health', async (req, res) => {
-  try {
-    if (!supabaseAdmin) {
-      return res.status(500).json({ status: 'error', message: 'Supabase Admin not initialized' });
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'ok',
+    message: 'Server is running',
+    supabase: !!supabaseAdmin,
+    env: {
+      hasUrl: !!supabaseUrl,
+      hasServiceKey: !!supabaseServiceKey,
+      isVercel: !!process.env.VERCEL,
+      nodeEnv: process.env.NODE_ENV
     }
-    const { error } = await supabaseAdmin.from('stores').select('count', { count: 'exact', head: true });
-    res.json({
-      status: 'ok',
-      supabase: error ? 'error' : 'connected',
-      supabaseError: error ? error.message : null,
-      env: {
-        hasUrl: !!supabaseUrl,
-        hasServiceKey: !!supabaseServiceKey,
-        isVercel: !!process.env.VERCEL,
-        nodeEnv: process.env.NODE_ENV
-      }
-    });
-  } catch (e: any) {
-    res.status(500).json({ status: 'error', message: e.message });
-  }
+  });
 });
 
-// API Routes
+// --- API Routes ---
 
 // Create Raw Material
 app.post('/api/inventory/raw-materials', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
   const { name, unit, description } = req.body;
   try {
     const { data, error } = await supabaseAdmin.from('raw_materials').insert([{ name, unit, description }]).select().single();
@@ -246,6 +97,7 @@ app.post('/api/inventory/raw-materials', async (req, res) => {
 
 // Create Finished Product
 app.post('/api/inventory/products', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
   try {
     const { data, error } = await supabaseAdmin.from('finished_products').insert([req.body]).select().single();
     if (error) throw error;
@@ -257,6 +109,7 @@ app.post('/api/inventory/products', async (req, res) => {
 
 // Create Vendor
 app.post('/api/inventory/vendors', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
   try {
     const { data, error } = await supabaseAdmin.from('vendors').insert([req.body]).select().single();
     if (error) throw error;
@@ -268,6 +121,7 @@ app.post('/api/inventory/vendors', async (req, res) => {
 
 // Create Store
 app.post('/api/inventory/stores', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
   try {
     const { data, error } = await supabaseAdmin.from('stores').insert([req.body]).select().single();
     if (error) throw error;
@@ -279,6 +133,7 @@ app.post('/api/inventory/stores', async (req, res) => {
 
 // PIN Verification Endpoint
 app.post('/api/auth/verify-pin', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
   const { pin, storeId } = req.body;
   if (!pin) return res.status(400).json({ error: 'Missing PIN' });
 
@@ -306,31 +161,9 @@ app.post('/api/auth/verify-pin', async (req, res) => {
   }
 });
 
-// User Creation Endpoint
-app.post('/api/users', async (req, res) => {
-  const { email, password, name, role, store_id, pin } = req.body;
-  try {
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email, password, email_confirm: true, user_metadata: { name, role }
-    });
-    if (authError) throw authError;
-
-    const { error: profileError } = await supabaseAdmin
-      .from('users')
-      .insert({
-        id: authData.user.id, email, name, role, store_id: store_id || null, pin,
-        created_at: new Date().toISOString()
-      });
-    if (profileError) throw profileError;
-
-    res.json({ status: 'success', uid: authData.user.id });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message || 'Failed to create user' });
-  }
-});
-
 // Record Purchase
 app.post('/api/inventory/purchase', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
   const { vendorId, invoice, date, items, userId } = req.body;
   if (!vendorId || !items || items.length === 0 || !userId) {
     return res.status(400).json({ error: 'Missing required fields' });
@@ -391,11 +224,9 @@ app.post('/api/inventory/purchase', async (req, res) => {
 
     if (purchaseError) throw purchaseError;
 
-    const { error: batchError } = await supabaseAdmin
+    await supabaseAdmin
       .from('material_batches')
       .insert(batchRecords.map(b => ({ ...b, purchase_id: purchaseData.id })));
-
-    if (batchError) throw batchError;
 
     const { data: currentBalanceData } = await supabaseAdmin
       .from('vendor_ledger')
@@ -455,6 +286,7 @@ app.post('/api/inventory/purchase', async (req, res) => {
 
 // Transfer Stock
 app.post('/api/inventory/transfer', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
   const { materialId, toStoreId, quantity, remarks, userId } = req.body;
   try {
     const { data: materialData } = await supabaseAdmin.from('raw_materials').select('name').eq('id', materialId).single();
@@ -501,6 +333,7 @@ app.post('/api/inventory/transfer', async (req, res) => {
 
 // POS Sale
 app.post('/api/pos/sale', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
   const { storeId, userId, items, paymentMode, totalAmount, customerName, customerPhone } = req.body;
   try {
     const { data: saleId, error } = await supabaseAdmin.rpc('process_pos_sale', {
@@ -517,6 +350,7 @@ app.post('/api/pos/sale', async (req, res) => {
 
 // Reports
 app.get('/api/reports/wastage', async (req, res) => {
+  if (!supabaseAdmin) return res.status(503).json({ error: 'Database connection not initialized' });
   try {
     const { data } = await supabaseAdmin.from('sale_item_consumptions').select(`
       area_deducted_sqft, wastage_generated_sqft, created_at,
@@ -528,39 +362,50 @@ app.get('/api/reports/wastage', async (req, res) => {
   }
 });
 
-// Only serve static files if not on Vercel
-if (!process.env.VERCEL) {
-  if (process.env.NODE_ENV !== 'production') {
-    const { createServer: createViteServer } = await import('vite');
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
+// --- Development/Local Mode Only ---
+async function startDev() {
+  if (process.env.VERCEL) return;
+
+  try {
+    const dotenv = await import('dotenv');
+    dotenv.config({ path: resolve(__dirname, '.env.local') });
+    
+    if (process.env.NODE_ENV !== 'production') {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+      app.get('*', async (req, res, next) => {
+        if (req.originalUrl.startsWith('/api')) return next();
+        try {
+          let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
+          template = await vite.transformIndexHtml(req.originalUrl, template);
+          res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
+        } catch (e) {
+          next(e);
+        }
+      });
+    } else {
+      const distPath = path.join(process.cwd(), 'dist');
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        if (req.originalUrl.startsWith('/api')) return res.status(404).json({ error: 'API route not found' });
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
+
+    const PORT = process.env.PORT || 3002;
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
     });
-    app.use(vite.middlewares);
-    app.get('*', async (req, res, next) => {
-      if (req.originalUrl.startsWith('/api')) return next();
-      try {
-        let template = fs.readFileSync(path.resolve(__dirname, 'index.html'), 'utf-8');
-        template = await vite.transformIndexHtml(req.originalUrl, template);
-        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-      } catch (e) {
-        next(e);
-      }
-    });
-  } else {
-    const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      if (req.originalUrl.startsWith('/api')) return res.status(404).json({ error: 'API route not found' });
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+  } catch (e) {
+    console.error('Failed to start development server:', e);
   }
 }
 
-// Start listener only if run directly and NOT on Vercel
+// Only run dev mode if NOT on Vercel AND either directly executed or in dev node_env
 if (!process.env.VERCEL && (import.meta.url === `file://${fileURLToPath(import.meta.url)}` || process.env.NODE_ENV === 'development')) {
-  const PORT = process.env.PORT || 3002;
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  startDev();
 }
