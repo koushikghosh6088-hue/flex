@@ -1,21 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Universal environment variable loader for maximum hosting compatibility
-const supabaseUrl = 
-  import.meta.env.VITE_SUPABASE_URL || 
-  import.meta.env.NEXT_PUBLIC_SUPABASE_URL || 
-  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_URL : '');
+/**
+ * PRODUCTION CONNECTION CONFIG
+ * Hardcoded to ensure zero-configuration deployment on Vercel.
+ */
+const supabaseUrl = "https://heecsmjhktcevmzzhrycy.supabase.co";
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhlZWNzamhrdGNldm16emhyeWN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzczNjQwMjgsImV4cCI6MjA5Mjk0MDAyOH0.VSVoKXKjUPQ4pN5BZLwHWc1bz49AorzUOg1-km1cv1Q";
 
-const supabaseKey = 
-  import.meta.env.VITE_SUPABASE_ANON_KEY || 
-  import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 
-  (typeof process !== 'undefined' ? process.env.VITE_SUPABASE_ANON_KEY : '');
-
-if (!supabaseUrl || !supabaseUrl.startsWith('http')) {
-  console.error('CRITICAL: Supabase URL is missing or invalid. Check Vercel Environment Variables.');
-}
-
-export const supabase = createClient(supabaseUrl || '', supabaseKey || '', {
+export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
     autoRefreshToken: true,
     persistSession: true,
